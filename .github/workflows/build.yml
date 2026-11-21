@@ -1,1 +1,54 @@
+name: Build & Deploy Game
 
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # game.zip রিপোজিটরির রুটে থাকবে; এটা খুলে গেমের কোড বের করা হচ্ছে
+      - name: Unzip game.zip
+        run: unzip -o game.zip -d game
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        working-directory: game
+        run: npm install
+
+      - name: Build
+        working-directory: game
+        run: npm run build
+        env:
+          VITE_PHOTON_APPID: ${{ secrets.VITE_PHOTON_APPID }}
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: game/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
